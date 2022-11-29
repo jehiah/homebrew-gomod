@@ -16,23 +16,27 @@ set -euo pipefail
 # limitations under the License.
 
 if [[ $# -lt 1 ]]; then
-    echo "Usage: brew gomod github.com/foo/bar [...]"
+    echo "Usage: brew gomod github.com/foo/bar@version"
     exit 1
 fi
 
-NAME="${1%@*}"; NAME="${NAME%/...}"; NAME="${NAME##*/}"
-VERSION=$(date '+%Y-%m-%d')
+MODULE_PATH="${1%@*}"
+NAME="${MODULE_PATH//[\/\.]/-}"
+VERSION="${1##*@}"
+if [ -z "${VERSION}" ] || [ "${VERSION}" = "latest" ] || [ "${VERSION}" = "${MODULE_PATH}" ]; then
+    VERSION="latest"
+    BREW_VERSION="0.$(date '+%Y%m%d.%H%M%S')"
+else
+    BREW_VERSION="${VERSION}"
+fi
 
-brew list "gomod-$NAME" >/dev/null 2>&1 && \
-    brew unlink "gomod-$NAME" 
+brew list "gomod-${NAME}" >/dev/null 2>&1 && \
+    brew uninstall "gomod-${NAME}"
 
-ROOT="$(brew --prefix)/Cellar/gomod-$NAME/$VERSION"
+ROOT="$(brew --prefix)/Cellar/gomod-${NAME}/${BREW_VERSION}"
+mkdir -p "$ROOT"
+cd "$ROOT"
 export GOBIN="$ROOT/bin"
+go install "${MODULE_PATH}@${VERSION}"
 
-mkdir -p "$ROOT/libexec/mod"
-cd "$ROOT/libexec/mod"
-
-go mod init "gomod-$NAME/$VERSION"
-go get "$@"
-
-brew link "gomod-$NAME"
+brew link "gomod-${NAME}"
